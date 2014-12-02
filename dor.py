@@ -85,7 +85,9 @@ class Dor():
 	def get_random_action(self):
 		Action = {}
 		cur_leg = 1
-		for leg in self.legs:
+		i = 0
+		while i < len(self.legs):
+			leg = self.legs[i]
 			print "Leg:",leg.index
 			if leg.raised:
 				da = choose_randomly(Angle_changes)
@@ -139,6 +141,7 @@ class Dor():
 				if not leg.phi_is_legal(dp):
 					print "This random action is illegal\n"
 					cur_leg = 1
+					i = 0
 					continue
 
 				Action[2] = (da,db,dp)
@@ -157,9 +160,9 @@ class Dor():
 				foot1 = self.get_foot(self.first_leg.index,Action[1])
 				foot2 = self.get_foot(self.second_leg.index,Action[2])
 				r0 = (q1 * foot1 + (d3-q1) * foot2 ) / d3
-				d0_square = d1**2 - q1**2
+				#d0_square = d1**2 - q1**2
 				v0 = foot2 - foot1
-				print "r0:", r0, d0_square
+				print "r0:", r0 #, d0_square
 
 				attepts = 5
 				while attepts > 0:
@@ -174,17 +177,57 @@ class Dor():
 									0])
 					print "r3:", r3, v3
 					v_line = np.cross(v0,v3)
-					print "v_line:",v_line
-					break	
+					x_line = (np.dot(r3,v3) - v3[1]/v0[1]*np.dot(r0,v0))/(v3[0] - v0[0]/v0[1])
+					r_line = np.array([ x_line,
+										(np.dot(r0,v0) - x_line*v0[0])/v0[1],
+										0 ])
+					z1 = r_line[2]+v_line[2]
+					if z1 > 0:
+						t1 = - leg.L/z1/2
+					else: 
+						t1 = leg.L/z1/2
 
-				#while not leg.phi_is_legal(dp):
-					#dp = choose_randomly(Angle_changes)	
-				
+					def fun(t):
+						dist = np.linalg.norm(r_line + v_line * t - foot2) - d1
+						print "dist:",dist
+						return dist
+
+					A = 0
+					B = t1
+					Fa = fun(A)
+					Fb = fun(B)
+					if Fa*Fb > 0:
+						B = B/2
+						Fb = fun(B)
+						if Fa*Fb > 0:
+							print "Solution not found\nAttempts:", attepts
+							attepts -= 1
+							dp = choose_randomly(Angle_changes)
+							continue
+
+					t3 = secant(A,B,Fa,Fb,fun)
+					if t3 == None:
+						print "Solution not found\nAttempts:",attepts
+						attepts -= 1
+						dp = choose_randomly(Angle_changes)
+						continue
+					else:
+						print "foot3 =",r_line +v_line*t3
+						break
+
+				else: # no solution found
+					print "This random action is illegal\n"
+					cur_leg = 1
+					i = 0
+					continue
+
 				# find alpha and beta
 				da = 0
 				db = 0
 				Action[3] = (da,db,dp)
 				print "Action3:",Action[3]
+			i += 1
+					
 
 		return Action
 

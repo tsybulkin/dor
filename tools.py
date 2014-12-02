@@ -20,7 +20,7 @@ MAX_ITER = 10
 def secant(A,B,Fa,Fb,fun,Iter=1):
 	#print "secant:",Iter
 	if Iter > MAX_ITER:
-		return (A*Fb-B*Fa)/(Fb-Fa)
+		return None
 
 	C = (A*Fb-B*Fa)/(Fb-Fa)
 	#print "secant: C =", C
