@@ -14,7 +14,7 @@ def choose_randomly(Ls):
 
 
 
-TOLERANCE = 0.1
+TOLERANCE = 0.5
 MAX_ITER = 10
 
 def secant(A,B,Fa,Fb,fun,Iter=1):

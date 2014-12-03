@@ -5,17 +5,18 @@
 #
 ####################################################### 
 
-from math import sin,cos,radians,pi
+from math import sin,cos,radians,degrees,pi,asin,atan,sqrt
 import numpy as np
 from random import random,seed
-from tools import choose_randomly, secant
+from tools import choose_randomly, secant, TOLERANCE
 
 alpha_max = pi/2
 beta_max = pi
 phi_max = pi/3
 
 
-Angle_changes = [-0.05, -0.02, -0.01, 0.0, 0.01, 0.02, 0.05 ]
+small_angles = [-0.05, -0.02, -0.01, 0.0, 0.01, 0.02, 0.05 ]
+big_angles = [-0.2, -0.1, -0.05, 0, 0.05, 0.1, 0.2]
 
 
 
@@ -88,53 +89,53 @@ class Dor():
 		i = 0
 		while i < len(self.legs):
 			leg = self.legs[i]
-			print "Leg:",leg.index
+			#print "Leg:",leg.index
 			if leg.raised:
-				da = choose_randomly(Angle_changes)
+				da = choose_randomly(big_angles)
 				while not leg.alpha_is_legal(da):
-					da = choose_randomly(Angle_changes)	
+					da = choose_randomly(big_angles)	
 				
-				db = choose_randomly(Angle_changes)
+				db = choose_randomly(big_angles)
 				while not leg.beta_is_legal(db):
-					db = choose_randomly(Angle_changes)	
+					db = choose_randomly(big_angles)	
 							
-				dp = choose_randomly(Angle_changes)
+				dp = choose_randomly(big_angles)
 				while not leg.phi_is_legal(dp):
-					dp = choose_randomly(Angle_changes)	
+					dp = choose_randomly(big_angles)	
 				
 				Action[0] = (da,db,dp)
-				print "Action0:",Action[0]
+				#print "Action0:",Action[0]
 			
 			elif cur_leg == 1:
 				self.first_leg = leg
-				da = choose_randomly(Angle_changes)
+				da = choose_randomly(small_angles)
 				while not leg.alpha_is_legal(da):
-					da = choose_randomly(Angle_changes)	
-					print "da:", da, leg.alpha_is_legal(da)
+					da = choose_randomly(small_angles)	
+					#print "da:", da, leg.alpha_is_legal(da)
 				
-				db = choose_randomly(Angle_changes)
+				db = choose_randomly(small_angles)
 				while not leg.beta_is_legal(db):
-					db = choose_randomly(Angle_changes)	
-					print "db:", db, leg.beta+db
+					db = choose_randomly(small_angles)	
+					#print "db:", db, leg.beta+db
 							
-				dp = choose_randomly(Angle_changes)
+				dp = choose_randomly(small_angles)
 				while not leg.phi_is_legal(dp):
-					dp = choose_randomly(Angle_changes)	
-					print "dp:", dp, leg.phi+dp
+					dp = choose_randomly(small_angles)	
+					#print "dp:", dp, leg.phi+dp
 				
 				Action[1] = (da,db,dp)
-				print "Action1:",Action[1]
+				#print "Action1:",Action[1]
 				cur_leg = 2
 
 			elif cur_leg == 2:
 				self.second_leg = leg
-				da = choose_randomly(Angle_changes)
+				da = choose_randomly(small_angles)
 				while not leg.alpha_is_legal(da):
-					da = choose_randomly(Angle_changes)	
+					da = choose_randomly(small_angles)	
 				
-				db = choose_randomly(Angle_changes)
+				db = choose_randomly(small_angles)
 				while not leg.beta_is_legal(db):
-					db = choose_randomly(Angle_changes)	
+					db = choose_randomly(small_angles)	
 				
 				# find phi
 				dp = self.find_phi(Action[1],(da,db))
@@ -145,7 +146,7 @@ class Dor():
 					continue
 
 				Action[2] = (da,db,dp)
-				print "Action2:", Action[2]
+				#print "Action2:", Action[2]
 				cur_leg = 3
 
 			elif cur_leg == 3:
@@ -153,20 +154,24 @@ class Dor():
 				d1 = self.feet_distances[(leg.index,self.second_leg.index)]
 				d2 = self.feet_distances[(leg.index,self.first_leg.index)]
 				d3 = self.feet_distances[(self.second_leg.index,self.first_leg.index)]
-				print "d1,d2,d3:",d1,d2,d3
+				#print "d1,d2,d3:",d1,d2,d3
 				q1 = (d1**2 - d2**2 + d3**2) / d3 / 2
 				
 				# the center of the circle which the foot of the last leg lays on
 				foot1 = self.get_foot(self.first_leg.index,Action[1])
 				foot2 = self.get_foot(self.second_leg.index,Action[2])
+				#print "foot1:",foot1
+				#print "foot2:",foot2
 				r0 = (q1 * foot1 + (d3-q1) * foot2 ) / d3
 				#d0_square = d1**2 - q1**2
 				v0 = foot2 - foot1
-				print "r0:", r0 #, d0_square
+				#print "r0, v0:", r0, v0 
 
-				attepts = 5
-				while attepts > 0:
-					dp = choose_randomly(Angle_changes)
+				attempts = 5
+				while attempts > 0:
+					dp = choose_randomly(small_angles)
+					#print "dp:",dp
+					#print "aa,phi:", leg.aa, leg.phi
 					
 					# leg's plane
 					v3 = np.array([-sin(leg.aa+leg.phi+dp), 
@@ -175,12 +180,13 @@ class Dor():
 					r3 = np.array([self.R * cos(leg.aa),
 									self.R * sin(leg.aa),
 									0])
-					print "r3:", r3, v3
+					#print "r3:", r3, v3
 					v_line = np.cross(v0,v3)
-					x_line = (np.dot(r3,v3) - v3[1]/v0[1]*np.dot(r0,v0))/(v3[0] - v0[0]/v0[1])
+					x_line = (np.dot(r3,v3)*v0[1] - np.dot(r0,v0)*v3[1])/(v3[0]*v0[1] - v0[0]*v3[1])
 					r_line = np.array([ x_line,
 										(np.dot(r0,v0) - x_line*v0[0])/v0[1],
 										0 ])
+					#print "r_line, v_line:", r_line, v_line
 					z1 = r_line[2]+v_line[2]
 					if z1 > 0:
 						t1 = - leg.L/z1/2
@@ -189,7 +195,6 @@ class Dor():
 
 					def fun(t):
 						dist = np.linalg.norm(r_line + v_line * t - foot2) - d1
-						print "dist:",dist
 						return dist
 
 					A = 0
@@ -200,19 +205,24 @@ class Dor():
 						B = B/2
 						Fb = fun(B)
 						if Fa*Fb > 0:
-							print "Solution not found\nAttempts:", attepts
-							attepts -= 1
-							dp = choose_randomly(Angle_changes)
-							continue
+							if abs(Fa) < TOLERANCE: t3 = A
+							elif abs(Fb) < TOLERANCE: t3 = B
+							else:
+								print "Solution not found\nAttempts remained:", attempts-1
+								attempts -= 1
+								continue
+						else:
+							t3 = secant(A,B,Fa,Fb,fun)
+					else:
+						t3 = secant(A,B,Fa,Fb,fun)
 
-					t3 = secant(A,B,Fa,Fb,fun)
 					if t3 == None:
-						print "Solution not found\nAttempts:",attepts
-						attepts -= 1
-						dp = choose_randomly(Angle_changes)
+						print "Solution not found\nAttempts remained:",attempts-1
+						attempts -= 1
 						continue
 					else:
-						print "foot3 =",r_line +v_line*t3
+						foot3 = r_line + v_line*t3
+						#print 'foot3:', foot3
 						break
 
 				else: # no solution found
@@ -222,13 +232,26 @@ class Dor():
 					continue
 
 				# find alpha and beta
-				da = 0
-				db = 0
-				Action[3] = (da,db,dp)
-				print "Action3:",Action[3]
+				joint3 = np.array([self.R * cos(leg.aa),
+									self.R * sin(leg.aa),
+									0])
+				delta = atan(-foot3[2]/sqrt((joint3[0]-foot3[0])**2 + (joint3[1]-foot3[1])**2))
+				#print "delta:", degrees(delta)
+				beta = 2 * asin(np.linalg.norm(foot3-joint3)/leg.L/2)
+				#print "beta:",degrees(beta)
+				alpha = delta + beta/2
+				#print "alpha:",degrees(alpha)
+				da = alpha - leg.alpha
+				db = beta - leg.beta
+				if leg.alpha_is_legal(da) and leg.beta_is_legal(db):
+					Action[3] = (da,db,dp)
+					#print "Action3:",Action[3]
+				else:
+					i = 1
+					cur_leg = 1
+					continue
 			i += 1
 					
-
 		return Action
 
 
@@ -283,7 +306,7 @@ class Dor():
 
 
 class Leg():
-	def __init__(self,index,attach_angle,alpha=radians(20),beta=radians(30),phi=0,L=10):
+	def __init__(self,index,attach_angle,alpha=radians(30),beta=radians(45),phi=0,L=10):
 		self.index = index
 		self.aa = attach_angle
 		self.alpha = alpha
@@ -325,7 +348,7 @@ if __name__ == '__main__':
 	#D.legs[0].alpha = 0.35
 	#D.legs[0].phi = 0.2
 	D.get_raised_leg()
-	D.get_random_action()
+	print D.get_random_action()
 
 	
 
