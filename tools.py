@@ -4,8 +4,10 @@
 #  
 #
 ####################################################### 
+import os
 
 import numpy as np
+import pickle
 from random import random, seed
 
 
@@ -58,5 +60,37 @@ def get_random_action(leg, angles, attempts=10):
 	print "random action selected"
 	
 	return (da,db,dp)
+
+
+def d(angle):
+	"""discretize the angle
+	"""
+	discr = 0.1
+	return round(angle/discr)
+
+
+def read_data(my_file):
+	if not os.path.isfile(my_file):
+		return {}
+
+	with open(my_file, 'rb') as handle:
+  		data = pickle.loads(handle.read())
+  	handle.close()
+
+  	return data
+
+
+def write_data(data, my_file):
+	with open(my_file, 'wb') as handle:
+		pickle.dump(data, handle)
+	handle.close()
+
+
+
+
+
+
+
+
 
 
