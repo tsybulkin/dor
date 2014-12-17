@@ -37,7 +37,7 @@ def secant(A,B,Fa,Fb,fun,Iter=1):
 		return C
 
 
-def get_random_action(leg, angles, attempts=10):
+def get_random_action(leg, angles, attempts=7):
 	da = choose_randomly(angles)
 	t1 = attempts
 	while not leg.alpha_is_legal(da) and t1 > 0:
@@ -66,7 +66,7 @@ def get_random_action(leg, angles, attempts=10):
 def d(angle):
 	"""discretize the angle
 	"""
-	discr = 0.1
+	discr = 0.2
 	return int(round(angle/discr))
 
 
@@ -181,10 +181,10 @@ def clean_q(Q):
 
 	for State in States:
 		actions = [ (Q[(S,A)], A) for (S,A) in Q if S == State]
-		if len(actions) < 10: continue
+		if len(actions) < 20: continue
 		
 		actions.sort()
-		new_records = actions[-5:]
+		new_records = actions[-10:]
 		
 		for (V,A) in actions:
 			del Q[(State,A)] 

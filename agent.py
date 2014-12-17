@@ -9,8 +9,16 @@ from tools import d, coin
 from math import pi
 
 gama = 0.9
-eps = 0.1
+eps = 0.05
 lr = 0.5 # learning rate
+
+di = [-1,0,1]
+dS = [ (s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12)
+		for s1 in di for s2 in di for s3 in di 
+		for s4 in di for s5 in di for s6 in di
+		for s7 in di for s8 in di for s9 in di
+		for s10 in di for s11 in di for s12 in di ]
+
 
 
 #def run_episodes(State,N):
@@ -89,10 +97,16 @@ def learn(NewState, State, Action, Reward, Q):
 		Q[(State,Action)] = V_new
 
 
+def get_close_values(State,Q):
+	values = [ Q(S+dS,A) for (S,A) in Q for dS in variations ]
+
+
+
 def get_value(State,Q):
 	values = [ Q[(S,A)] for (S,A) in Q if S == State]
 	if len(values) == 0:
-		return 0
+
+		return get_close_values(State,Q)
 	else:
 		return max(values)
 
@@ -101,10 +115,10 @@ def get_value(State,Q):
 def get_state(dor):
 	"""returns a discrete state for particular dor position defined by 12 angles
 	"""
-	State = []
+	State = (dor.raised_leg,)
 	for leg in dor.legs:
-		State.append( (d(leg.alpha),d(leg.beta),d(leg.phi)) )
+		State +=  ( d(leg.alpha),d(leg.beta),d(leg.phi) ) 
 
-	return tuple(State)
+	return State
 
 

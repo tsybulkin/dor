@@ -8,20 +8,23 @@
 from math import sin,cos,radians,degrees,pi,asin,atan,sqrt
 import numpy as np
 from tools import *
+from time import sleep
 
 
 alpha_max = pi/2
 beta_max = pi
-phi_max = pi/3
+phi_max = pi/5
 
 
-small_angles = [-0.04, -0.02, -0.01, 0.0, 0.01, 0.02, 0.04 ]
-big_angles = [-0.2, -0.1, -0.05, 0, 0.05, 0.1, 0.2]
+
+small_angles = [-0.01, 0.0, 0.01 ]
+big_angles = [ -0.5, -0.02, 0, 0.02, 0.5]
 
 MAX_ATTEMPTS = 20
 
 class Dor():
 	def __init__(self,X=0,Y=0):
+		self.actions = []
 		self.Ox = X
 		self.Oy = Y
 		self.Oz = 0
@@ -34,6 +37,7 @@ class Dor():
 
 		self.feet_distances = self.get_dist_between_feet()
 		
+		self.legs[0].xy = self.get_foot(0,(0,0,0))[:2]		
 		self.legs[1].xy = self.get_foot(1,(0,0,0))[:2]
 		self.legs[3].xy = self.get_foot(3,(0,0,0))[:2]
 		self.legs[2].xy = self.get_ground_xy(2)
@@ -70,7 +74,7 @@ class Dor():
 		"""
 		Matrix = np.array([[0, 1],[-1, 0]])
 		#print "leg:",leg_index,
-		raised = self.raised_leg
+		#raised = self.raised_leg
 		
 		leg1 = (leg_index+3)%4
 		leg2 = (leg_index+1)%4
@@ -122,8 +126,8 @@ class Dor():
 		(da,db,_) = Action[2]
 		#print "\nLeg2: da,db:",da,db
 		p = self.legs[(i+2)%4].phi
-		A = -pi/4 - p
-		B = pi/4 - p
+		A = -phi_max - p
+		B = phi_max - p
 		#print "A,B:",A,B
 
 		def fun(dp):
@@ -141,77 +145,84 @@ class Dor():
 		"""changes state taking the given action
 		Assumed that action is legal
 		"""
-		raised = self.raised_leg
-		self.legs[raised].move_leg(action[0])
+		self.actions.append((self.raised_leg,action[0],action[1],action[2][:2],action[3][2]))
+		old_raised = self.raised_leg
 		
 		#print action
-
-		[ self.legs[(raised+k)%4].move_leg(action[k]) for k in range(1,4) ]
+		for k in range(4):
+			self.legs[(old_raised+k)%4].move_leg(action[k])
 		
 		
-		if self.raised_leg in self.get_raised_leg():
+		if old_raised in self.get_raised_leg():
 			# check CoM
 			stable,CoM,qs = self.is_stable()
 			if stable:
 				# no changes
+				self.legs[self.raised_leg].xy = self.get_ground_xy(self.raised_leg)
+		
 				self.CoM = CoM 
 			else:
 				# raised goes to the opposite leg
-				self.raised_leg  = (raised + 2) % 4
+				self.raised_leg  = (old_raised + 2) % 4
 				#print "Opposite leg is raised:", self.raised_leg 
-				self.legs[raised].xy = self.get_ground_xy(raised)
+				self.legs[old_raised].xy = self.get_ground_xy(old_raised)
 				
-				stable,CoM,qs = self.is_stable()
-				assert stable, "qs:%s" % str(qs) 
+				stable,CoM,qs1 = self.is_stable()
+				if not stable: print "qs:%s, qs1:%s" % (str(qs), str(qs1)) 
 				
 				self.CoM = CoM 				
 		else:
 			# raised goes to the next leg
 			
-			self.raised_leg = (raised + 1) % 4
-			self.legs[raised].xy = self.get_ground_xy(raised)
+			self.raised_leg = (old_raised + 1) % 4
+			self.legs[old_raised].xy = self.get_ground_xy(old_raised)
 		
-			stable,CoM1,_ = self.is_stable()
+			stable,CoM1,qs1 = self.is_stable()
 			if not stable:
 				# the opposit leg is raised
 				
-				self.raised_leg = (raised + 3) % 4
+				self.raised_leg = (old_raised + 3) % 4
 				#self.legs[i].xy = self.get_ground_xy(i)
 				
 				stable,CoM2,qs = self.is_stable()
-				assert stable, "feet: %s" % str(self.get_feet())
+				if not stable: print "q1:%s, q2:%s" % (qs1,qs)
 
 				self.CoM = CoM2 
 			else:
 				# both could be stable
-				self.raised_leg = (raised + 3) % 4 
+				self.raised_leg = (old_raised + 3) % 4 
 				#self.legs[i].xy = self.get_ground_xy(i)
 		
 				stable,CoM2,_ = self.is_stable()
 
 				if not stable:
 					# the first option is true
-					self.raised_leg = (raised + 1) % 4  
+					self.raised_leg = (old_raised + 1) % 4  
 					#self.legs[i].xy = self.get_ground_xy(i)
 		
 					self.CoM = CoM1 
+					stable = True
 				else:
 					# both stable
 					if np.linalg.norm(CoM1 - self.CoM) < np.linalg.norm(CoM2 - self.CoM):
-						self.raised_leg = (raised + 1) % 4 
+						self.raised_leg = (old_raised + 1) % 4 
 						#self.legs[i].xy = self.get_ground_xy(i)
 		
 						self.CoM = CoM1 
 					else:
-						self.raised_leg = (raised + 3) % 4 
+						self.raised_leg = (old_raised + 3) % 4 
 						#self.legs[i].xy = self.get_ground_xy(i)
 		
 						self.CoM = CoM2 
 		
 		self.update_orientation()
 		self.feet_distances = self.get_dist_between_feet()
-		
-				
+		if not stable: 
+			print "Fell"
+
+		return stable
+	
+
 	def get_move(self, Action):
 		i = self.raised_leg
 		
@@ -234,7 +245,7 @@ class Dor():
 		da = alpha - leg.alpha
 		db = beta - leg.beta
 		if leg.alpha_is_legal(da) and leg.beta_is_legal(db):
-			Res[3] = (da,db,dp)
+			Res[3] = (da,db,Action[3])
 		else:
 			return self.get_random_action()
 
@@ -270,11 +281,12 @@ class Dor():
 			da,db,_ = Action[2]
 			Action[2] = (da,db,dp)
 				
+			
 			attempts = 5
 			while attempts > 0:
-				dp = choose_randomly(big_angles)
+				dp3 = choose_randomly(big_angles)
 				
-				foot3 = find_foot3(self, i, dp, Action)	
+				foot3 = find_foot3(self, i, dp3, Action)	
 				if foot3 != None: break
 				else: attempts -= 1
 
@@ -295,7 +307,7 @@ class Dor():
 			da = alpha - leg.alpha
 			db = beta - leg.beta
 			if leg.alpha_is_legal(da) and leg.beta_is_legal(db):
-				Action[3] = (da,db,dp)
+				Action[3] = (da,db,dp3)
 				break
 			else:
 				#print "legal da or db cannot be found\nda,da:",da,db
@@ -332,8 +344,9 @@ class Dor():
 		the second element is a projection of centre of mass onto the plane of three feet
 		the third is a tuple of three q - a load factor on each leg
 		"""
+		raised = self.raised_leg
 		feet = self.get_feet()
-		f1,f2,f3 = tuple([ feet[i] for i in range(4) if i != self.raised_leg])
+		f1,f2,f3 = tuple([ feet[i] for i in range(4) if i != raised])
 		
 		v1 = f1-f2
 		v2 = f3-f2
@@ -342,9 +355,9 @@ class Dor():
 		#print "sin:",ez1
 		X0,Y0 = (ez1 * np.dot(ez1,f1))[:2]
 		#print "X0,Y0",X0,Y0
-		X1,Y1 = f1[0],f1[1]
-		X2,Y2 = f2[0],f2[1]
-		X3,Y3 = f3[0],f3[1]
+		X1,Y1 = f1[:2]
+		X2,Y2 = f2[:2]
+		X3,Y3 = f3[:2]
 		#print "Feet:", f1[:2],f2[:2],f3[:2]
 
 		TX0 = (X0-X3)/(X1-X3)
@@ -354,7 +367,7 @@ class Dor():
 		q1 =  TX0 - TX2 * q2
 		q3 = 1 - (q1 + q2)
 
-		xy = [ self.legs[i].xy for i in range(4) if self.raised_leg != i] 
+		xy = [ self.legs[i].xy for i in range(4) if raised != i] 
 		CoM = xy[0]*q1+xy[1]*q2+xy[2]*q3
 		
 		if q1>0 and q2>0 and q3>0: return (True, CoM, (q1,q2,q3))
@@ -381,14 +394,37 @@ class Dor():
 
 
 	def measure_output(self,mode):
+		
 		if mode == "forward":
-			return self.CoM[:]
+			raised = self.raised_leg
+			opposite = (raised+2)%4
+
+			return np.array([sum([l.xy[0] for l in self.legs if not l.index in [raised,opposite] ])/2, 
+							sum([l.xy[1] for l in self.legs if not l.index in [raised,opposite] ])/2])
 		elif mode == "right" or mode == "left":
 			return float(self.orientation)
 		else:
 			return None
 
+	def draw(self,plt):
+		ps = plt.gca().patches
+		while len(ps) >1: ps.pop() 
+		
+		circle = plt.Circle(tuple(self.CoM), radius=self.R, fc='r')
+		plt.gca().add_patch(circle)
+		raised = self.raised_leg
 
+		for i in range(4):
+			f = self.legs[(raised+i)%4].xy
+				
+			if i == 0:
+				foot = plt.Circle(tuple(f), radius=self.R/5, fc='r')	
+			else:	
+				foot = plt.Circle(tuple(f), radius=self.R/5, fc='b')
+
+			plt.gca().add_patch(foot)
+		plt.draw()
+		sleep(0.5)
 
 
 class Leg():
@@ -420,18 +456,18 @@ class Leg():
 	
 	def alpha_is_legal(self,da):
 		a = self.alpha + da
-		return a >= pi/15 and a < pi/1.5
+		return a >= pi/15 and a < pi/2
 
 	def beta_is_legal(self,db):
 		b = self.beta + db
-		return b >= pi/12 and b < 2 * self.alpha
+		return b >= pi/9 and b < 2 * self.alpha
 
 	def phi_is_legal(self,dp):
 		if dp == None:
 			return False
 
 		p = self.phi + dp
-		return abs(p) < pi/4
+		return abs(p) < phi_max
 
 	
 
